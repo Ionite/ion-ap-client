@@ -19,13 +19,18 @@ Use ion-ap-client.py <command> -h to see specific command usage.
 # Installation
 
 - Clone this repository
+
     git clone https://github.com/ionite/ion-ap-client
     cd ion-ap-client
+
 - Install the requests library, globally or in a virtual environment
+
     sudo pip3 install requests
 - Create initial configuration
+
     ./ion-ap-client.py create_config
 - Set your API key in the configuration file
+
     vi ~/.ion-ap-client
 
 You are now ready to go. To see whether you have already received
