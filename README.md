@@ -24,6 +24,13 @@ server instead of parsed results. In the case where XML documents are
 returned, the XML is printed), and -v (print request and headers
 sent to server).
 
+Create an initial default configuration file, where you can set your
+API key.
+
+    > ./ion-ap-client.py create_config
+    Default configuration written to /home/user/.ion-ap-client.conf
+
+
 Retrieve the most recent incoming transactions (by default, up to ten)
 
     > ./ion-ap-client.py receive

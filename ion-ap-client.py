@@ -131,6 +131,7 @@ class IonAPClient:
             with open(self.config_file, "w") as output_file:
                 self.config.write(output_file)
                 print("Default configuration written to %s" % self.config_file)
+            os.chmod(self.config_file, 0o600)
 
     #
     # Main functionality
@@ -191,28 +192,28 @@ class IonAPClient:
                 print("%s\t%s\t%s" % (element["transaction_id"], element["status"], element["created_on"]))
 
     def send_status_single(self, transaction_id):
-        path = "send/transactions/%s" % (transaction_id)
+        path = "send/transactions/%s" % transaction_id
         method = "GET"
         result = self.request(method, path)
         if result:
             print("%s\t%s\t%s" % (result["transaction_id"], result["status"], result["created_on"]))
 
     def send_status_document(self, transaction_id):
-        path = "send/transactions/%s/document" % (transaction_id)
+        path = "send/transactions/%s/document" % transaction_id
         method = "GET"
         headers = {'Accept': 'application/xml'}
         document = self.request(method, path, headers=headers)
         print(document)
 
     def send_status_receipt(self, transaction_id):
-        path = "send/transactions/%s/receipt" % (transaction_id)
+        path = "send/transactions/%s/receipt" % transaction_id
         method = "GET"
         headers = {'Accept': 'application/xml'}
         document = self.request(method, path, headers=headers)
         print(document)
 
     def send_status_metadata(self, transaction_id):
-        path = "send/transactions/%s/metadata/" % (transaction_id)
+        path = "send/transactions/%s/metadata/" % transaction_id
         method = "GET"
         result = self.request(method, path)
         if result:
@@ -222,9 +223,9 @@ class IonAPClient:
             print("Process:  %s" % (result["business_scope_process_id"]))
 
     def send_status_delete(self, transaction_id):
-        path = "send/transactions/%s/" % (transaction_id)
+        path = "send/transactions/%s/" % transaction_id
         method = "DELETE"
-        self.request(method, url)
+        self.request(method, path)
 
     def receive_list(self, page, page_size):
         path = "receive/transactions/?page=%d&page_size=%d" % (page, page_size)
@@ -245,28 +246,28 @@ class IonAPClient:
                 print("%s\t%s\t%s" % (element["transaction_id"], element["status"], element["created_on"]))
 
     def receive_single(self, transaction_id):
-        path = "receive/transactions/%s" % (transaction_id)
+        path = "receive/transactions/%s" % transaction_id
         method = "GET"
         result = self.request(method, path)
         if result:
             print("%s\t%s\t%s" % (result["transaction_id"], result["status"], result["created_on"]))
 
     def receive_document(self, transaction_id):
-        path = "receive/transactions/%s/document" % (transaction_id)
+        path = "receive/transactions/%s/document" % transaction_id
         method = "GET"
         headers = {'Accept': 'application/xml'}
         document = self.request(method, path, headers=headers)
         print(document)
 
     def receive_receipt(self, transaction_id):
-        path = "receive/transactions/%s/receipt" % (transaction_id)
+        path = "receive/transactions/%s/receipt" % transaction_id
         method = "GET"
         headers = {'Accept': 'application/xml'}
         document = self.request(method, path, headers=headers)
         print(document)
 
     def receive_metadata(self, transaction_id):
-        path = "%sreceive/transactions/%s/metadata/" % (transaction_id)
+        path = "receive/transactions/%s/metadata/" % transaction_id
         method = "GET"
         result = self.request(method, path)
         if result:
@@ -276,7 +277,7 @@ class IonAPClient:
             print("Process:  %s" % (result["business_scope_process_id"]))
 
     def receive_delete(self, transaction_id):
-        path = "%sreceive/transactions/%s/" % (transaction_id)
+        path = "receive/transactions/%s/" % transaction_id
         method = "DELETE"
         self.request(method, path)
 
