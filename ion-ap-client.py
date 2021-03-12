@@ -19,13 +19,14 @@ or the file ~/.ionap.conf
 
 import argparse
 import configparser
+from datetime import datetime
 import json
 import os
 import sys
 
 import requests
 
-API_VERSION = "0.2"
+API_VERSION = "0.3"
 DEFAULT_BASE_URL = "https://test.ion-ap.net/api/"
 DEFAULT_CONFIG_FILE = os.path.abspath(os.path.expanduser("~/.ion-ap-client.conf"))
 
@@ -243,7 +244,21 @@ class IonAPClient:
 
             print("Showing %d-%d of %d transactions" % (first, last, total))
             for element in elements:
-                print("%s\t%s\t%s" % (element["transaction_id"], element["status"], element["created_on"]))
+                #print("%s\t%s\t%s" % (element["transaction_id"], element["status"], element["created_on"]))
+                date_str = element["created_on"].replace("Z", "+00:00")
+                
+                date = datetime.fromisoformat(date_str)
+                day = date.strftime("%Y-%m-%d")
+                time = date.strftime("%H:%M")
+                print("%s %s %s %s %s %s %s" % (
+                    day, time,
+                    element["document_sender"],
+                    element["document_sender_name"],
+                    element["document_identification_type"],
+                    element["transaction_id"],
+                    element["status"],
+                ))
+                #print(date.strftime("%Y-%m-%d"))
 
     def receive_single(self, transaction_id):
         path = "receive/transactions/%s" % transaction_id
