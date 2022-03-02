@@ -23,6 +23,7 @@ from datetime import datetime
 import json
 import os
 import sys
+import simplejson
 
 import requests
 
@@ -73,7 +74,9 @@ class IonAPClient:
     #
     # Helper methods
     #
-    def request(self, method, path, data=None, headers=None):
+    # Set json_response=False if you are not calling the API with accept:application/json, but downloading data,
+    # such as XML documents
+    def request(self, method, path, data=None, headers=None, json_response=True):
         if self.api_key is None or self.api_key == '<api key>':
             raise IonAPClientError(
                 "API key not set, please create a configuration file or set an environment variable IONAP_API_KEY")
@@ -108,11 +111,14 @@ class IonAPClient:
 
         if 200 <= response.status_code < 300:
             try:
-                response_data = response.json()
-                if self.json_output:
-                    print(json.dumps(response_data, indent=2))
-                    return None
-            except json.decoder.JSONDecodeError:
+                if json_response:
+                    response_data = response.json()
+                    if self.json_output:
+                        print(json.dumps(response_data, indent=2))
+                        return None
+                else:
+                    response_data = response.content.decode('utf-8')
+            except simplejson.decoder.JSONDecodeError:
                 response_data = response.content.decode('utf-8')
             return response_data
         else:
@@ -120,7 +126,7 @@ class IonAPClient:
             try:
                 response_data = response.json()
                 print(json.dumps(response_data, indent=2))
-            except json.decoder.JSONDecodeError:
+            except simplejson.decoder.JSONDecodeError:
                 response_data = response.content.decode('utf-8')
                 print(response_data)
             return None
@@ -152,6 +158,8 @@ class IonAPClient:
             params.append("receiver=%s" % receiver)
         if args.process_id:
             params.append("process_id=%s" % args.process_id)
+        if args.action_id:
+            params.append("action_id=%s" % args.action_id)
         if args.document_id:
             params.append("document_id=%s" % args.document_id)
         if len(params) > 0:
@@ -250,10 +258,14 @@ class IonAPClient:
                 date = datetime.fromisoformat(date_str)
                 day = date.strftime("%Y-%m-%d")
                 time = date.strftime("%H:%M")
+                if "document_sender_name" in element:
+                    name = element["document_sender_name"]
+                else:
+                    name = "-"
                 print("%s %s %s %s %s %s %s" % (
                     day, time,
-                    element["document_sender"],
-                    element["document_sender_name"],
+                    element.get("document_sender"),
+                    name,
                     element["document_identification_type"],
                     element["transaction_id"],
                     element["status"],
@@ -271,7 +283,7 @@ class IonAPClient:
         path = "receive/transactions/%s/document" % transaction_id
         method = "GET"
         headers = {'Accept': 'application/xml'}
-        document = self.request(method, path, headers=headers)
+        document = self.request(method, path, headers=headers, json_response=False)
         print(document)
 
     def receive_receipt(self, transaction_id):
@@ -305,7 +317,8 @@ class CommandLine:
             usage="""ionap_client.py <main command> [<args>]
 
 Main commands:
-    send            Send documents and retrieve status of send transactions
+    send            Send document (derive SBDH)
+    send_sbdh       Send document which already includes SBDH
     send_status     View and retrieve the status and details of outgoing
                     transactions and documents
     receive         View and retrieve the status and details of incoming
@@ -367,6 +380,8 @@ Use ion_ap_client <main command> -h for more details about the specific command.
         parser.add_argument("--process-id",
                             help="The process id (such as "
                                  "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0)")
+        parser.add_argument("--action-id",
+                            help="The action id (leave blank for Peppol)")
         parser.add_argument("--document-id",
                             help="The full document id (document type, root element, "
                                  "customization id and version)")
