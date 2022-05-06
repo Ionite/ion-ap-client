@@ -23,11 +23,10 @@ from datetime import datetime
 import json
 import os
 import sys
-import simplejson
 
 import requests
 
-API_VERSION = "0.3"
+API_VERSION = "v1"
 DEFAULT_BASE_URL = "https://test.ion-ap.net/api/"
 DEFAULT_CONFIG_FILE = os.path.abspath(os.path.expanduser("~/.ion-ap-client.conf"))
 
@@ -144,7 +143,7 @@ class IonAPClient:
     # Main functionality
     #
     def send_document(self, document_data, args):
-        path = "send/document/"
+        path = "send/new/document/"
         params = []
         if args.sender:
             sender = args.sender
@@ -173,7 +172,7 @@ class IonAPClient:
         return result
 
     def send_sbdh(self, document_data):
-        path = "send/sbdh/"
+        path = "send/new/document/"
         method = "POST"
         headers = {
             'Content-Type': 'application/xml',
@@ -183,39 +182,46 @@ class IonAPClient:
         return result
 
     def send_status_list(self, page, page_size):
-        path = "send/transactions/?page=%d&page_size=%d" % (page, page_size)
+        path = "send/status/transaction/?offset=%d&limit=%d" % (page, page_size)
+        #path = "send/status/transaction/"
         method = "GET"
         result = self.request(method, path)
         if result:
-            elements = result["results"]
-            total = result["count"]
-            if len(elements) > 0:
-                first = 1 + (page_size * (page - 1))
-                last = first + len(elements) - 1
-            else:
-                first = 0
-                last = 0
+            pagination = result['pagination']
+            elements = result["data"]
+            total = pagination["total"]
 
-            print("Showing %d-%d of %d transactions" % (first, last, total))
+            print("Showing %d-%d of %d transactions" % (pagination['offset'], pagination['offset']+pagination['limit'], total))
             for element in elements:
-                print("%s\t%s\t%s" % (element["transaction_id"], element["status"], element["created_on"]))
+                #print(json.dumps(element, indent=2))
+                print("%s\t%s\t%s" % (element["id"], element["state"], element['receiver'].replace('iso6523-actorid-upis::', '')))
 
     def send_status_single(self, transaction_id):
-        path = "send/transactions/%s" % transaction_id
+        path = "send/status/transaction/%s" % transaction_id
+        method = "GET"
+        element = self.request(method, path)
+        if element:
+            for k,v in element.items():
+                print(f"{k}:\t{v}")
+            #print("%s\t%s\t%s" % (element["id"], element["state"], element['receiver'].replace('iso6523-actorid-upis::', '')))
+
+    def send_status_overview(self):
+        path = "send/status/overview/"
         method = "GET"
         result = self.request(method, path)
-        if result:
-            print("%s\t%s\t%s" % (result["transaction_id"], result["status"], result["created_on"]))
+        for k, v in result.items():
+            print(f"{k}:\t{v}")
 
     def send_status_document(self, transaction_id):
-        path = "send/transactions/%s/document" % transaction_id
+        # TODO
+        path = "send/status/transaction/%s/document" % transaction_id
         method = "GET"
         headers = {'Accept': 'application/xml'}
         document = self.request(method, path, headers=headers)
         print(document)
 
     def send_status_receipt(self, transaction_id):
-        path = "send/transactions/%s/receipt" % transaction_id
+        path = "send/status/transaction/%s/receipt" % transaction_id
         method = "GET"
         headers = {'Accept': 'application/xml'}
         document = self.request(method, path, headers=headers)
@@ -232,12 +238,13 @@ class IonAPClient:
             print("Process:  %s" % (result["business_scope_process_id"]))
 
     def send_status_delete(self, transaction_id):
-        path = "send/transactions/%s/" % transaction_id
+        path = "send/status/transaction/%s/" % transaction_id
         method = "DELETE"
         self.request(method, path)
 
     def receive_list(self, page, page_size):
-        path = "receive/transactions/?page=%d&page_size=%d" % (page, page_size)
+        #path = "receive/transactions/?page=%d&page_size=%d" % (page, page_size)
+        path = "receive/"
         method = "GET"
         result = self.request(method, path)
         if result:
@@ -392,7 +399,7 @@ Use ion_ap_client <main command> -h for more details about the specific command.
             document_data = infile.read()
         result = self.api_client.send_document(document_data, args)
         if result:
-            print("Status: %s Transaction id %s" % (result["status"], result["transaction_id"]))
+            print("Status: %s Transaction id %s" % (result["state"], result["id"]))
 
     def send_sbdh(self):
         parser = argparse.ArgumentParser(
@@ -444,6 +451,9 @@ Commands:
                 self.api_client.send_status_delete(args.transaction)
             else:
                 print("Unknown command: %s" % args.command)
+
+    def send_status_overview(self):
+        return self.api_client.send_status_overview()
 
     def receive(self):
         parser = argparse.ArgumentParser(
