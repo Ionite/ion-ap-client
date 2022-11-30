@@ -19,10 +19,10 @@ or the file ~/.ionap.conf
 
 import argparse
 import configparser
-from datetime import datetime
 import json
 import os
 import sys
+from datetime import datetime
 
 import requests
 
@@ -155,7 +155,7 @@ class IonAPClient:
 
     def send_status_list(self, offset, limit):
         path = "send/status/transaction/?offset=%d&limit=%d" % (offset, limit)
-        #path = "send/status/transaction/"
+        # path = "send/status/transaction/"
         method = "GET"
         result = self.request(method, path)
         if result:
@@ -163,9 +163,9 @@ class IonAPClient:
             elements = result["data"]
             total = pagination["total"]
 
-            print("Showing transactions %d-%d (of %d)" % (pagination['offset'], pagination['offset']+pagination['limit']-1, total))
+            print("Showing transactions %d-%d (of %d)" % (pagination['offset'], pagination['offset'] + pagination['limit'] - 1, total))
             for element in elements:
-                #print(json.dumps(element, indent=2))
+                # print(json.dumps(element, indent=2))
                 print("%s\t%s\t%s" % (element["id"], element["state"], element['receiver'].replace('iso6523-actorid-upis::', '')))
 
     def send_status_single(self, transaction_id):
@@ -173,9 +173,9 @@ class IonAPClient:
         method = "GET"
         element = self.request(method, path)
         if element:
-            for k,v in element.items():
+            for k, v in element.items():
                 print(f"{k}:\t{v}")
-            #print("%s\t%s\t%s" % (element["id"], element["state"], element['receiver'].replace('iso6523-actorid-upis::', '')))
+            # print("%s\t%s\t%s" % (element["id"], element["state"], element['receiver'].replace('iso6523-actorid-upis::', '')))
 
     def send_status_delete(self, transaction_id):
         path = "send/status/transaction/%s/" % transaction_id
@@ -192,40 +192,40 @@ class IonAPClient:
             elements = result["data"]
             total = pagination["total"]
 
-            print("Showing transactions %d-%d (of %d)" % (pagination['offset'], pagination['offset']+pagination['limit']-1, total))
+            print("Showing transactions %d-%d (of %d)" % (pagination['offset'], pagination['offset'] + pagination['limit'] - 1, total))
             for element in elements:
-                #print("%s\t%s\t%s" % (element["transaction_id"], element["status"], element["created_on"]))
+                # print("%s\t%s\t%s" % (element["transaction_id"], element["status"], element["created_on"]))
                 date_str = element["timestamp"].replace("Z", "+00:00")
-                
+
                 date = datetime.fromisoformat(date_str)
                 day = date.strftime("%Y-%m-%d")
                 time = date.strftime("%H:%M")
-                
-                sender = element['message_properties']['originalSender'].replace('iso-6523-actorid-upis::', '')
+
+                sender = element['message_properties']['originalSender'].replace('iso6523-actorid-upis::', '')
                 print("%s %s %s %s %s" % (
                     day, time,
                     sender,
                     element["collaboration_info_action"].split("##")[0].split('::')[2],
                     element["message_id"],
-                    #element["status"],
+                    # element["status"],
                 ))
-                #print(date.strftime("%Y-%m-%d"))
+                # print(date.strftime("%Y-%m-%d"))
 
     def receive_single(self, transaction_id):
         path = "receive/%s" % transaction_id
         method = "GET"
         result = self.request(method, path)
         if result:
-            #print("%s\t%s\t%s" % (result["message_id"], result["status"], result["created_on"]))
-            #print("%s\t%s" % (result["message_id"], result["timestamp"]))
-            for k,v in result.items():
+            # print("%s\t%s\t%s" % (result["message_id"], result["status"], result["created_on"]))
+            # print("%s\t%s" % (result["message_id"], result["timestamp"]))
+            for k, v in result.items():
                 if type(v) != dict:
                     if k in ['timestamp', 'message_id', 'from_id', 'to_id']:
                         print(f"{k}: {v}")
                     if k == 'collaboration_info_action':
                         print(f"Documenttype: {v}")
                 else:
-                    for kk,vv in v.items():
+                    for kk, vv in v.items():
                         print(f"{kk}: {vv.replace('iso6523-actorid-upis::', '')}")
 
     def receive_document(self, transaction_id):
