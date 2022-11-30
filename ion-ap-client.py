@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-This is a command-line client for ion-AP.
+This is a command-line client for ion-AP (temporary API version).
 
 It serves as both a tool for command-line operations, and as an example
-for building interfaces with the ion-AP API.
+for building interfaces with the (temporary) ion-AP API.
 
 It can call the standard sending/receiving endpoints
 
