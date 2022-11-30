@@ -117,7 +117,7 @@ class IonAPClient:
                         return None
                 else:
                     response_data = response.content.decode('utf-8')
-            except simplejson.decoder.JSONDecodeError:
+            except json.decoder.JSONDecodeError:
                 response_data = response.content.decode('utf-8')
             return response_data
         else:
@@ -125,7 +125,7 @@ class IonAPClient:
             try:
                 response_data = response.json()
                 print(json.dumps(response_data, indent=2))
-            except simplejson.decoder.JSONDecodeError:
+            except json.decoder.JSONDecodeError:
                 response_data = response.content.decode('utf-8')
                 print(response_data)
             return None
@@ -145,24 +145,6 @@ class IonAPClient:
     def send_document(self, document_data, args):
         path = "send/new/document/"
         params = []
-        if args.sender:
-            sender = args.sender
-            if sender.find("::") < 0:
-                sender = "iso6523-actorid-upis::%s" % sender
-            params.append("sender=%s" % sender)
-        if args.receiver:
-            receiver = args.receiver
-            if receiver.find("::") < 0:
-                receiver = "iso6523-actorid-upis::%s" % receiver
-            params.append("receiver=%s" % receiver)
-        if args.process_id:
-            params.append("process_id=%s" % args.process_id)
-        if args.action_id:
-            params.append("action_id=%s" % args.action_id)
-        if args.document_id:
-            params.append("document_id=%s" % args.document_id)
-        if len(params) > 0:
-            path += "?%s" % "&".join(params)
         method = "POST"
         headers = {
             'Content-Type': 'application/xml',
@@ -171,18 +153,8 @@ class IonAPClient:
         result = self.request(method, path, data=document_data, headers=headers)
         return result
 
-    def send_sbdh(self, document_data):
-        path = "send/new/document/"
-        method = "POST"
-        headers = {
-            'Content-Type': 'application/xml',
-            'Accept': 'application/json'
-        }
-        result = self.request(method, path, data=document_data, headers=headers)
-        return result
-
-    def send_status_list(self, page, page_size):
-        path = "send/status/transaction/?offset=%d&limit=%d" % (page, page_size)
+    def send_status_list(self, offset, limit):
+        path = "send/status/transaction/?offset=%d&limit=%d" % (offset, limit)
         #path = "send/status/transaction/"
         method = "GET"
         result = self.request(method, path)
@@ -191,7 +163,7 @@ class IonAPClient:
             elements = result["data"]
             total = pagination["total"]
 
-            print("Showing %d-%d of %d transactions" % (pagination['offset'], pagination['offset']+pagination['limit'], total))
+            print("Showing transactions %d-%d (of %d)" % (pagination['offset'], pagination['offset']+pagination['limit']-1, total))
             for element in elements:
                 #print(json.dumps(element, indent=2))
                 print("%s\t%s\t%s" % (element["id"], element["state"], element['receiver'].replace('iso6523-actorid-upis::', '')))
@@ -205,115 +177,68 @@ class IonAPClient:
                 print(f"{k}:\t{v}")
             #print("%s\t%s\t%s" % (element["id"], element["state"], element['receiver'].replace('iso6523-actorid-upis::', '')))
 
-    def send_status_overview(self):
-        path = "send/status/overview/"
-        method = "GET"
-        result = self.request(method, path)
-        for k, v in result.items():
-            print(f"{k}:\t{v}")
-
-    def send_status_document(self, transaction_id):
-        # TODO
-        path = "send/status/transaction/%s/document" % transaction_id
-        method = "GET"
-        headers = {'Accept': 'application/xml'}
-        document = self.request(method, path, headers=headers)
-        print(document)
-
-    def send_status_receipt(self, transaction_id):
-        path = "send/status/transaction/%s/receipt" % transaction_id
-        method = "GET"
-        headers = {'Accept': 'application/xml'}
-        document = self.request(method, path, headers=headers)
-        print(document)
-
-    def send_status_metadata(self, transaction_id):
-        path = "send/transactions/%s/metadata/" % transaction_id
-        method = "GET"
-        result = self.request(method, path)
-        if result:
-            print("Sender:   %s::%s" % (result["sender_authority"], result["sender"]))
-            print("Receiver: %s::%s" % (result["receiver_authority"], result["receiver"]))
-            print("Type:     %s" % (result["document_identification_type"]))
-            print("Process:  %s" % (result["business_scope_process_id"]))
-
     def send_status_delete(self, transaction_id):
         path = "send/status/transaction/%s/" % transaction_id
         method = "DELETE"
-        self.request(method, path)
+        self.request(method, path, json_response=False)
 
-    def receive_list(self, page, page_size):
-        #path = "receive/transactions/?page=%d&page_size=%d" % (page, page_size)
-        path = "receive/"
-        method = "GET"
-        result = self.request(method, path)
+    def receive_list(self, offset, limit):
+        path = "receive/?offset=%d&limit=%d" % (offset, limit)
+        result = self.request("GET", path)
         if result:
-            elements = result["results"]
-            total = result["count"]
-            if len(elements) > 0:
-                first = 1 + (page_size * (page - 1))
-                last = first + len(elements) - 1
-            else:
-                first = 0
-                last = 0
+            elements = result["data"]
+            total = result["pagination"]["total"]
+            pagination = result['pagination']
+            elements = result["data"]
+            total = pagination["total"]
 
-            print("Showing %d-%d of %d transactions" % (first, last, total))
+            print("Showing transactions %d-%d (of %d)" % (pagination['offset'], pagination['offset']+pagination['limit']-1, total))
             for element in elements:
                 #print("%s\t%s\t%s" % (element["transaction_id"], element["status"], element["created_on"]))
-                date_str = element["created_on"].replace("Z", "+00:00")
+                date_str = element["timestamp"].replace("Z", "+00:00")
                 
                 date = datetime.fromisoformat(date_str)
                 day = date.strftime("%Y-%m-%d")
                 time = date.strftime("%H:%M")
-                if "document_sender_name" in element:
-                    name = element["document_sender_name"]
-                else:
-                    name = "-"
-                print("%s %s %s %s %s %s %s" % (
+                
+                sender = element['message_properties']['originalSender'].replace('iso-6523-actorid-upis::', '')
+                print("%s %s %s %s %s" % (
                     day, time,
-                    element.get("document_sender"),
-                    name,
-                    element["document_identification_type"],
-                    element["transaction_id"],
-                    element["status"],
+                    sender,
+                    element["collaboration_info_action"].split("##")[0].split('::')[2],
+                    element["message_id"],
+                    #element["status"],
                 ))
                 #print(date.strftime("%Y-%m-%d"))
 
     def receive_single(self, transaction_id):
-        path = "receive/transactions/%s" % transaction_id
+        path = "receive/%s" % transaction_id
         method = "GET"
         result = self.request(method, path)
         if result:
-            print("%s\t%s\t%s" % (result["transaction_id"], result["status"], result["created_on"]))
+            #print("%s\t%s\t%s" % (result["message_id"], result["status"], result["created_on"]))
+            #print("%s\t%s" % (result["message_id"], result["timestamp"]))
+            for k,v in result.items():
+                if type(v) != dict:
+                    if k in ['timestamp', 'message_id', 'from_id', 'to_id']:
+                        print(f"{k}: {v}")
+                    if k == 'collaboration_info_action':
+                        print(f"Documenttype: {v}")
+                else:
+                    for kk,vv in v.items():
+                        print(f"{kk}: {vv.replace('iso6523-actorid-upis::', '')}")
 
     def receive_document(self, transaction_id):
-        path = "receive/transactions/%s/document" % transaction_id
+        path = "receive/%s/document" % transaction_id
         method = "GET"
         headers = {'Accept': 'application/xml'}
         document = self.request(method, path, headers=headers, json_response=False)
         print(document)
 
-    def receive_receipt(self, transaction_id):
-        path = "receive/transactions/%s/receipt" % transaction_id
-        method = "GET"
-        headers = {'Accept': 'application/xml'}
-        document = self.request(method, path, headers=headers)
-        print(document)
-
-    def receive_metadata(self, transaction_id):
-        path = "receive/transactions/%s/metadata/" % transaction_id
-        method = "GET"
-        result = self.request(method, path)
-        if result:
-            print("Sender:   %s::%s" % (result["sender_authority"], result["sender"]))
-            print("Receiver: %s::%s" % (result["receiver_authority"], result["receiver"]))
-            print("Type:     %s" % (result["document_identification_type"]))
-            print("Process:  %s" % (result["business_scope_process_id"]))
-
     def receive_delete(self, transaction_id):
-        path = "receive/transactions/%s/" % transaction_id
+        path = "receive/%s/" % transaction_id
         method = "DELETE"
-        self.request(method, path)
+        self.request(method, path, json_response=False)
 
 
 class CommandLine:
@@ -324,10 +249,9 @@ class CommandLine:
             usage="""ionap_client.py <main command> [<args>]
 
 Main commands:
-    send            Send document (derive SBDH)
-    send_sbdh       Send document which already includes SBDH
+    send            Send document (derive SBDH if not present)
     send_status     View and retrieve the status and details of outgoing
-                    transactions and documents
+                    transactions
     receive         View and retrieve the status and details of incoming
                     transactions and documents
     create_config   Create an initial default config file
@@ -377,21 +301,7 @@ Use ion_ap_client <main command> -h for more details about the specific command.
             description="ion-AP API send document",
             usage="""ionap_client.py send <filename> [<args>]
 """)
-        parser.add_argument("filename", help="The XML document to send")
-        parser.add_argument("--sender",
-                            help="The sender identifier (in the form 0106:12345678 or "
-                                 "iso6523-actorid-upis::0106:12345678")
-        parser.add_argument("--receiver",
-                            help="The receiver identifier (in the form 0106:12345678 or "
-                                 "iso6523-actorid-upis::0106:12345678")
-        parser.add_argument("--process-id",
-                            help="The process id (such as "
-                                 "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0)")
-        parser.add_argument("--action-id",
-                            help="The action id (leave blank for Peppol)")
-        parser.add_argument("--document-id",
-                            help="The full document id (document type, root element, "
-                                 "customization id and version)")
+        parser.add_argument("filename", help="The XML document or full SBDH to send.")
 
         args = parser.parse_args(self.rest_args)
 
@@ -401,59 +311,33 @@ Use ion_ap_client <main command> -h for more details about the specific command.
         if result:
             print("Status: %s Transaction id %s" % (result["state"], result["id"]))
 
-    def send_sbdh(self):
-        parser = argparse.ArgumentParser(
-            description="ion-AP API send document (full SBDH)",
-            usage="""ionap_client.py send <filename> [<args>]
-""")
-        parser.add_argument("filename", help="The XML document to send")
-
-        args = parser.parse_args(self.rest_args)
-        with open(args.filename, 'r') as infile:
-            document_data = infile.read()
-        result = self.api_client.send_sbdh(document_data)
-        if result:
-            print("Status: %s Transaction id %s" % (result["status"], result["transaction_id"]))
-
     def send_status(self):
         parser = argparse.ArgumentParser(
             description="ion-AP API send operations",
             usage="""ionap_client.py send_status <transaction> <command> [<args>]
 
 Commands:
-  document: Retrieve the XML document that was sent
-  receipt: Retrieve the receipt that the receiving access point sent
-  metadata: Retrieve metadata of the transaction (sender, receiver, etc.)
   delete: Delete the transaction
 """)
         parser.add_argument("transaction",
-                            help="The transaction ID to get information or data from, "
+                            help="The timestamp ID to get information or data from, "
                                  "or a command. Leave empty for a list of send transactions",
                             nargs='?')
         parser.add_argument("command", help="A command to run on the transaction", nargs='?')
-        parser.add_argument("-p", "--page", help="The page to show when listing transactions", type=int, default=1)
-        parser.add_argument("-s", "--page-size", help="The number of items to show when listing transactions", type=int,
+        parser.add_argument("-o", "--offset", help="The offset of the first item to show when listing transactions, defaults to 0", type=int, default=0)
+        parser.add_argument("-l", "--limit", help="The number of items to show when listing transactions, defaults to 10", type=int,
                             default=10)
         args = parser.parse_args(self.rest_args)
 
         if args.transaction is None:
-            self.api_client.send_status_list(page=args.page, page_size=args.page_size)
+            self.api_client.send_status_list(offset=args.offset, limit=args.limit)
         else:
             if args.command is None:
                 self.api_client.send_status_single(args.transaction)
-            elif args.command == "document":
-                self.api_client.send_status_document(args.transaction)
-            elif args.command == "receipt":
-                self.api_client.send_status_receipt(args.transaction)
-            elif args.command == "metadata":
-                self.api_client.send_status_metadata(args.transaction)
             elif args.command == "delete":
                 self.api_client.send_status_delete(args.transaction)
             else:
                 print("Unknown command: %s" % args.command)
-
-    def send_status_overview(self):
-        return self.api_client.send_status_overview()
 
     def receive(self):
         parser = argparse.ArgumentParser(
@@ -462,8 +346,6 @@ Commands:
 
 Commands:
   document: Retrieve the XML document that was sent
-  receipt: Retrieve the receipt that the receiving access point sent
-  metadata: Retrieve metadata of the transaction (sender, receiver, etc.)
   delete: Delete the transaction
 """)
         parser.add_argument("transaction",
@@ -471,23 +353,19 @@ Commands:
                                  "Leave empty for a list of transactions",
                             nargs='?')
         parser.add_argument("command", help="A command to run on the transaction", nargs='?')
-        parser.add_argument("-p", "--page", help="The page to show when listing transactions", type=int, default=1)
-        parser.add_argument("-s", "--page-size", help="The number of items to show when listing transactions", type=int,
+        parser.add_argument("-o", "--offset", help="The offset of the first item to show when listing transactions, defaults to 0", type=int, default=0)
+        parser.add_argument("-l", "--limit", help="The number of items to show when listing transactions, defaults to 10", type=int,
                             default=10)
         # parser.add_argument("--json", action="store_true", help="Print output as JSON")
         args = parser.parse_args(self.rest_args)
 
         if args.transaction is None:
-            self.api_client.receive_list(page=args.page, page_size=args.page_size)
+            self.api_client.receive_list(offset=args.offset, limit=args.limit)
         else:
             if args.command is None:
                 self.api_client.receive_single(args.transaction)
             elif args.command == "document":
                 self.api_client.receive_document(args.transaction)
-            elif args.command == "receipt":
-                self.api_client.receive_receipt(args.transaction)
-            elif args.command == "metadata":
-                self.api_client.receive_metadata(args.transaction)
             elif args.command == "delete":
                 self.api_client.receive_delete(args.transaction)
             else:
