@@ -22,6 +22,7 @@ import configparser
 import json
 import os
 import sys
+import time
 from datetime import datetime
 
 import requests
@@ -310,6 +311,9 @@ Use ion_ap_client <main command> -h for more details about the specific command.
         result = self.api_client.send_document(document_data, args)
         if result:
             print("Status: %s Transaction id %s" % (result["state"], result["id"]))
+        print("Waiting 2 seconds and fetching initial result")
+        time.sleep(2)
+        self.api_client.send_status_single(result["id"])
 
     def send_status(self):
         parser = argparse.ArgumentParser(
