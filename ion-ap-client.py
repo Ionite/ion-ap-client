@@ -22,13 +22,67 @@ import configparser
 import json
 import os
 import sys
+import time
 from datetime import datetime
+
+WAIT_TIME = 3
 
 import requests
 
-API_VERSION = "v1"
+API_VERSION = "v2"
 DEFAULT_BASE_URL = "https://test.ion-ap.net/api/"
 DEFAULT_CONFIG_FILE = os.path.abspath(os.path.expanduser("~/.ion-ap-client.conf"))
+
+def fdate(date_str):
+    date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+    day = date.strftime("%Y-%m-%d")
+    time = date.strftime("%H:%M")
+    return f"{day} {time}"
+
+def ldate(date_str):
+    date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+    day = date.strftime("%Y-%m-%d")
+    time = date.strftime("%H:%M:%S.%f")[:-3]
+    return f"{day} {time}"
+
+MAX_COL_WIDTH = 48
+
+def table_print(rows):
+    cols = []
+    if len(rows) == 0:
+        return
+    for field in rows[0]:
+        cols.append(len(str(field)))
+    for row in rows[1:]:
+        for index, field in enumerate(row):
+            cols[index] = max(cols[index], len(str(field)))
+    
+    for row in rows:
+        for index, field in enumerate(row):
+            width = cols[index]
+            flen = len(str(field))
+            # Align right unless this is a continuation line
+            if index != 1 or row[0] != "":
+                sys.stdout.write(" "*(width-flen))
+            sys.stdout.write(str(field))
+            sys.stdout.write("  ")
+        sys.stdout.write('\n')
+
+
+def print_dict_as_table(element, max_width=MAX_COL_WIDTH):
+    rows = []
+    for k,v in element.items():
+        if len(str(v)) <= MAX_COL_WIDTH:
+            rows.append([k, v])
+        else:
+            rv = v[:]
+            rk = k
+            while len(rv) > MAX_COL_WIDTH:
+                rows.append([rk, rv[:MAX_COL_WIDTH]])
+                rv = rv[MAX_COL_WIDTH:]
+                rk = ""
+            rows.append([rk, rv])
+    table_print(rows)
 
 
 class IonAPClientError(Exception):
@@ -143,7 +197,7 @@ class IonAPClient:
     # Main functionality
     #
     def send_document(self, document_data, args):
-        path = "send/new/document/"
+        path = "send-document"
         params = []
         method = "POST"
         headers = {
@@ -154,36 +208,71 @@ class IonAPClient:
         return result
 
     def send_status_list(self, offset, limit):
-        path = "send/status/transaction/?offset=%d&limit=%d" % (offset, limit)
+        path = "send-transactions?offset=%d&limit=%d" % (offset, limit)
         # path = "send/status/transaction/"
         method = "GET"
         result = self.request(method, path)
         if result:
-            pagination = result['pagination']
-            elements = result["data"]
-            total = pagination["total"]
+            total = result['count']
+            elements = result["results"]
 
-            print("Showing transactions %d-%d (of %d)" % (pagination['offset'], pagination['offset'] + pagination['limit'] - 1, total))
+            print("Showing transactions %d-%d (of %d)" % (offset, min(total - 1, offset + limit - 1), total))
+            rows = []
             for element in elements:
-                # print(json.dumps(element, indent=2))
-                print("%s\t%s\t%s" % (element["id"], element["state"], element['receiver'].replace('iso6523-actorid-upis::', '')))
+                rows.append([
+                    element['id'],
+                    fdate(element['created_on']),
+                    element['receiver_identifier'],
+                    element['document_type'],
+                    element['state']
+                ])
+            table_print(rows)
 
     def send_status_single(self, transaction_id):
-        path = "send/status/transaction/%s" % transaction_id
+        path = "send-transactions/%s?disable_links=1" % transaction_id
         method = "GET"
         element = self.request(method, path)
         if element:
-            for k, v in element.items():
-                print(f"{k}:\t{v}")
-            # print("%s\t%s\t%s" % (element["id"], element["state"], element['receiver'].replace('iso6523-actorid-upis::', '')))
+            print_dict_as_table(element)
+    
+    def send_status_errors(self, transaction_id):
+        path = "send-transactions/%s/errors?disable_links=1" % transaction_id
+        method = "GET"
+        result = self.request(method, path)
+        if result:
+            elements = result['results']
+            rows = []
+            for element in elements:
+                rows.append([element['code'], element['detail']])
+            table_print(rows)
+
+    def send_status_logs(self, transaction_id):
+        path = "send-transactions/%s/logs?disable_links=1" % transaction_id
+        method = "GET"
+        result = self.request(method, path)
+        if result:
+            elements = result['results']
+            rows = []
+            for element in elements:
+                rows.append([
+                    ldate(element['timestamp']),
+                    #element['name'],
+                    element['level'],
+                    element['msg']
+                ])
+                #print(element)
+                #rows.append([element['code'], element['detail']])
+            for row in rows:
+                print("  ".join(row))
+            #table_print(rows)
 
     def send_status_delete(self, transaction_id):
-        path = "send/status/transaction/%s/" % transaction_id
+        path = "send-transactions/%s/" % transaction_id
         method = "DELETE"
         self.request(method, path, json_response=False)
 
     def receive_list(self, offset, limit):
-        path = "receive/?offset=%d&limit=%d" % (offset, limit)
+        path = "receive-transactions?offset=%d&limit=%d" % (offset, limit)
         result = self.request("GET", path)
         if result:
             elements = result["data"]
@@ -194,7 +283,7 @@ class IonAPClient:
 
             print("Showing transactions %d-%d (of %d)" % (pagination['offset'], pagination['offset'] + pagination['limit'] - 1, total))
             for element in elements:
-                # print("%s\t%s\t%s" % (element["transaction_id"], element["status"], element["created_on"]))
+                # print("%s    %s    %s" % (element["transaction_id"], element["status"], element["created_on"]))
                 date_str = element["timestamp"].replace("Z", "+00:00")
 
                 date = datetime.fromisoformat(date_str)
@@ -216,8 +305,8 @@ class IonAPClient:
         method = "GET"
         result = self.request(method, path)
         if result:
-            # print("%s\t%s\t%s" % (result["message_id"], result["status"], result["created_on"]))
-            # print("%s\t%s" % (result["message_id"], result["timestamp"]))
+            # print("%s    %s    %s" % (result["message_id"], result["status"], result["created_on"]))
+            # print("%s    %s" % (result["message_id"], result["timestamp"]))
             for k, v in result.items():
                 if type(v) != dict:
                     if k in ['timestamp', 'message_id', 'from_id', 'to_id']:
@@ -310,6 +399,9 @@ Use ion_ap_client <main command> -h for more details about the specific command.
         result = self.api_client.send_document(document_data, args)
         if result:
             print("Status: %s Transaction id %s" % (result["state"], result["id"]))
+            print(f"Waiting {WAIT_TIME} seconds before requesting status")
+            time.sleep(WAIT_TIME)
+            self.api_client.send_status_single(result["id"])
 
     def send_status(self):
         parser = argparse.ArgumentParser(
@@ -317,6 +409,8 @@ Use ion_ap_client <main command> -h for more details about the specific command.
             usage="""ionap_client.py send_status <transaction> <command> [<args>]
 
 Commands:
+  errors: Show transaction errors (if any)
+  logs: Show server logs for this transaction
   delete: Delete the transaction
 """)
         parser.add_argument("transaction",
@@ -334,6 +428,10 @@ Commands:
         else:
             if args.command is None:
                 self.api_client.send_status_single(args.transaction)
+            elif args.command == "errors":
+                self.api_client.send_status_errors(args.transaction)
+            elif args.command == "logs":
+                self.api_client.send_status_logs(args.transaction)
             elif args.command == "delete":
                 self.api_client.send_status_delete(args.transaction)
             else:
