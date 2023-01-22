@@ -264,7 +264,6 @@ class IonAPClient:
                 #rows.append([element['code'], element['detail']])
             for row in rows:
                 print("  ".join(row))
-            #table_print(rows)
 
     def send_status_delete(self, transaction_id):
         path = "send-transactions/%s/" % transaction_id
@@ -275,54 +274,54 @@ class IonAPClient:
         path = "receive-transactions?offset=%d&limit=%d" % (offset, limit)
         result = self.request("GET", path)
         if result:
-            elements = result["data"]
-            total = result["pagination"]["total"]
-            pagination = result['pagination']
-            elements = result["data"]
-            total = pagination["total"]
+            elements = result["results"]
+            total = result["count"]
 
-            print("Showing transactions %d-%d (of %d)" % (pagination['offset'], pagination['offset'] + pagination['limit'] - 1, total))
+            print("Showing transactions %d-%d (of %d)" % (offset, offset + limit - 1, total))
+            rows = []
             for element in elements:
-                # print("%s    %s    %s" % (element["transaction_id"], element["status"], element["created_on"]))
-                date_str = element["timestamp"].replace("Z", "+00:00")
-
-                date = datetime.fromisoformat(date_str)
-                day = date.strftime("%Y-%m-%d")
-                time = date.strftime("%H:%M")
-
-                sender = element['message_properties']['originalSender'].replace('iso6523-actorid-upis::', '')
-                print("%s %s %s %s %s" % (
-                    day, time,
-                    sender,
-                    element["collaboration_info_action"].split("##")[0].split('::')[2],
-                    element["message_id"],
-                    # element["status"],
-                ))
-                # print(date.strftime("%Y-%m-%d"))
+                rows.append([
+                    element['id'],
+                    fdate(element['created_on']),
+                    element['sender_identifier'],
+                    element['document_type'],
+                    element['state']
+                ])
+            table_print(rows)
 
     def receive_single(self, transaction_id):
-        path = "receive/%s" % transaction_id
+        path = "receive-transactions/%s?disable_links=1" % transaction_id
         method = "GET"
-        result = self.request(method, path)
-        if result:
-            # print("%s    %s    %s" % (result["message_id"], result["status"], result["created_on"]))
-            # print("%s    %s" % (result["message_id"], result["timestamp"]))
-            for k, v in result.items():
-                if type(v) != dict:
-                    if k in ['timestamp', 'message_id', 'from_id', 'to_id']:
-                        print(f"{k}: {v}")
-                    if k == 'collaboration_info_action':
-                        print(f"Documenttype: {v}")
-                else:
-                    for kk, vv in v.items():
-                        print(f"{kk}: {vv.replace('iso6523-actorid-upis::', '')}")
+        element = self.request(method, path)
+        if element:
+            print_dict_as_table(element)
 
     def receive_document(self, transaction_id):
-        path = "receive/%s/document" % transaction_id
+        path = "receive-transactions/%s/document" % transaction_id
         method = "GET"
         headers = {'Accept': 'application/xml'}
         document = self.request(method, path, headers=headers, json_response=False)
         print(document)
+
+    def receive_logs(self, transaction_id):
+        path = "receive-transactions/%s/logs?disable_links=1" % transaction_id
+        method = "GET"
+        result = self.request(method, path)
+        if result:
+            elements = result['results']
+            rows = []
+            for element in elements:
+                rows.append([
+                    ldate(element['timestamp']),
+                    #element['name'],
+                    element['level'],
+                    element['msg']
+                ])
+                #print(element)
+                #rows.append([element['code'], element['detail']])
+            for row in rows:
+                print("  ".join(row))
+
 
     def receive_delete(self, transaction_id):
         path = "receive/%s/" % transaction_id
@@ -444,6 +443,7 @@ Commands:
 
 Commands:
   document: Retrieve the XML document that was sent
+  logs: Show server logs for this transaction
   delete: Delete the transaction
 """)
         parser.add_argument("transaction",
@@ -464,6 +464,8 @@ Commands:
                 self.api_client.receive_single(args.transaction)
             elif args.command == "document":
                 self.api_client.receive_document(args.transaction)
+            elif args.command == "logs":
+                self.api_client.receive_logs(args.transaction)
             elif args.command == "delete":
                 self.api_client.receive_delete(args.transaction)
             else:
