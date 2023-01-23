@@ -216,14 +216,14 @@ class IonAPClient:
             total = result['count']
             elements = result["results"]
 
-            print("Showing transactions %d-%d (of %d)" % (offset, min(total - 1, offset + limit - 1), total))
+            print("Showing transactions %d-%d (of %d)" % (offset, max(0, min(total - 1, offset + limit - 1)), total))
             rows = []
             for element in elements:
                 rows.append([
                     element['id'],
                     fdate(element['created_on']),
                     element['receiver_identifier'],
-                    element['document_type'],
+                    element['document_id'],
                     element['state']
                 ])
             table_print(rows)
@@ -266,7 +266,7 @@ class IonAPClient:
                 print("  ".join(row))
 
     def send_status_delete(self, transaction_id):
-        path = "send-transactions/%s/" % transaction_id
+        path = "send-transactions/%s" % transaction_id
         method = "DELETE"
         self.request(method, path, json_response=False)
 
@@ -277,14 +277,14 @@ class IonAPClient:
             elements = result["results"]
             total = result["count"]
 
-            print("Showing transactions %d-%d (of %d)" % (offset, offset + limit - 1, total))
+            print("Showing transactions %d-%d (of %d)" % (offset, max(0, offset + limit - 1), total))
             rows = []
             for element in elements:
                 rows.append([
                     element['id'],
                     fdate(element['created_on']),
                     element['sender_identifier'],
-                    element['document_type'],
+                    element['document_id'],
                     element['state']
                 ])
             table_print(rows)
