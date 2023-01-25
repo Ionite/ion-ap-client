@@ -278,6 +278,7 @@ class PrintingIonAPClient(IonAPClient):
                 rows.append([
                     element['id'],
                     fdate(element['created_on']),
+                    element['sender_identifier'],
                     element['receiver_identifier'],
                     element['document_id'],
                     element['state']
@@ -325,6 +326,7 @@ class PrintingIonAPClient(IonAPClient):
                     element['id'],
                     fdate(element['created_on']),
                     element['sender_identifier'],
+                    element['receiver_identifier'],
                     element['document_id'],
                     element['state']
                 ])
@@ -502,9 +504,11 @@ Commands:
     def create_config(self):
         self.api_client.write_default_config()
 
-
-if __name__ == '__main__':
+def main():
     try:
         client = CommandLine()
     except IonAPClientError as iace:
         print("Error: %s" % str(iace))
+    
+if __name__ == '__main__':
+    main()

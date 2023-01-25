@@ -7,16 +7,17 @@ setup(
     version="0.1",
     packages=find_packages(),
     scripts=[
-        'ion-ap-client.py',
     ],
 
     install_requires=[
         'requests'
     ],
 
-    extra_requires=[
-    ],
-
+    entry_points = {
+        'console_scripts': [
+            'ion-ap-client = ion_ap_client.ion_ap_client:main',                  
+        ],              
+    },
     package_data={
     },
 
