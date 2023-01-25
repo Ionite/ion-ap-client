@@ -26,9 +26,11 @@ import time
 from datetime import datetime
 
 import requests
+from typing import Optional
+
 
 API_VERSION = "v2"
-DEFAULT_BASE_URL = "https://test.ion-ap.net/api/"
+DEFAULT_API_URL = "https://test.ion-ap.net/api/v2"
 DEFAULT_CONFIG_FILE = os.path.abspath(os.path.expanduser("~/.ion-ap-client.conf"))
 
 def fdate(date_str):
@@ -94,7 +96,24 @@ class IonAPClient:
     Most of these functions return JSON as returned by the
     API.
     """
-    def __init__(self, config_file=None, json_output=False, verbose=False):
+    def __init__(self, api_key: str, api_url: Optional[str]=None, json_output:bool=False, verbose:bool=False):
+        self.json_output = json_output
+        self.verbose = verbose
+
+        self.api_key = api_key
+        if api_url is None:
+            self.api_url = DEFAULT_API_URL
+        else:
+            self.api_url = api_url
+
+        if not self.api_url.endswith(API_VERSION) and not self.api_url.endswith(f"{API_VERSION}/"):
+            if not self.api_url.endswith('/'):
+                self.api_url += '/'
+            self.api_url += "%s/" % API_VERSION
+        if not self.api_url.endswith('/'):
+            self.api_url += '/'
+
+    def OLD__init__(self, config_file=None, json_output=False, verbose=False):
         self.config_file = config_file
         self.json_output = json_output
         self.verbose = verbose
@@ -114,6 +133,7 @@ class IonAPClient:
         self.api_url += "%s/" % API_VERSION
 
     def read_config(self):
+        self.config = configparser.ConfigParser()
         if self.config_file is None:
             self.config_file = DEFAULT_CONFIG_FILE
         self.config['ionap'] = {
@@ -259,7 +279,7 @@ class IonAPClient:
         return self.request(method, path)
 
     def receive_delete(self, transaction_id):
-        path = "receive/%s" % transaction_id
+        path = "receive-transactions/%s" % transaction_id
         method = "DELETE"
         self.request(method, path, json_response=False)
 
@@ -410,7 +430,26 @@ Use ion_ap_client <main command> -h for more details about the specific command.
             print("Unknown command: %s" % args.command)
             sys.exit(2)
 
-        self.api_client = PrintingIonAPClient(args.config, args.json, args.verbose)
+        config = configparser.ConfigParser()
+        if args.config is None:
+            config_file = DEFAULT_CONFIG_FILE
+        else:
+            config_file = args.config
+        config['ionap'] = {
+            'api_key': '<api key>',
+            'api_url': DEFAULT_API_URL
+        }
+        if os.path.exists(config_file):
+            config.read(config_file)
+            if args.verbose:
+                print("Read configuration file %s" % config_file)
+        else:
+            if args.verbose:
+                print("Configuration file %s does not exist, not reading configuration" % self.config_file)
+
+        self.api_client = PrintingIonAPClient(config.get('ionap', 'api_key'),
+                                              config.get('ionap', 'api_url'),
+                                              args.json, args.verbose)
         cmd()
 
     def send(self):
