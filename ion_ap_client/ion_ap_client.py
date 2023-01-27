@@ -358,7 +358,7 @@ class PrintingIonAPClient(IonAPClient):
             print_dict_as_table(result)
 
     def receive_document(self, transaction_id):
-        super().receive_document(transaction_id)
+        document = super().receive_document(transaction_id)
         print(document)
 
     def receive_logs(self, transaction_id):
@@ -445,7 +445,7 @@ Use ion_ap_client <main command> -h for more details about the specific command.
                 print("Read configuration file %s" % config_file)
         else:
             if args.verbose:
-                print("Configuration file %s does not exist, not reading configuration" % self.config_file)
+                print("Configuration file %s does not exist, not reading configuration" % config_file)
 
         self.api_client = PrintingIonAPClient(config.get('ionap', 'api_key'),
                                               config.get('ionap', 'api_url'),
