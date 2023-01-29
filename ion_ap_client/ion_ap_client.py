@@ -249,7 +249,7 @@ class IonAPClient:
         return self.request(method, path)
 
     def send_status_logs(self, transaction_id):
-        path = "send-transactions/%s/logs?disable_links=1" % transaction_id
+        path = "send-transactions/%s/logs?disable_links=1&limit=10000" % transaction_id
         method = "GET"
         return self.request(method, path)
 
@@ -408,7 +408,7 @@ Use ion_ap_client <main command> -h for more details about the specific command.
         args = sys.argv[1:]
         while len(args) > 0:
             arg = args.pop(0)
-            if arg in ['-c', '--config']:
+            if arg in ['-c', '--config', '-w', '--wait']:
                 main_args.append(arg)
                 if len(args) > 0:
                     main_args.append(args.pop(0))
