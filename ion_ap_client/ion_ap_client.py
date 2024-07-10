@@ -253,6 +253,11 @@ class IonAPClient:
         method = "GET"
         return self.request(method, path)
 
+    def send_status_receipt(self, transaction_id):
+        path = "send-transactions/%s/receipt?disable_links=1&limit=10000" % transaction_id
+        method = "GET"
+        return self.request(method, path)
+
     def send_status_delete(self, transaction_id):
         path = "send-transactions/%s" % transaction_id
         method = "DELETE"
@@ -332,6 +337,10 @@ class PrintingIonAPClient(IonAPClient):
                 ])
             for row in rows:
                 print("  ".join(row))
+
+    def send_status_receipt(self, transaction_id):
+        result = super().send_status_receipt(transaction_id)
+        print(result)
 
     def receive_list(self, offset, limit):
         result = super().receive_list(offset, limit)
@@ -479,6 +488,7 @@ Use ion_ap_client <main command> -h for more details about the specific command.
 Commands:
   errors: Show transaction errors (if any)
   logs: Show server logs for this transaction
+  receipt: Show receipt from remote AP
   delete: Delete the transaction
 """)
         parser.add_argument("transaction",
@@ -500,6 +510,8 @@ Commands:
                 self.api_client.send_status_errors(args.transaction)
             elif args.command == "logs":
                 self.api_client.send_status_logs(args.transaction)
+            elif args.command == "receipt":
+                self.api_client.send_status_receipt(args.transaction)
             elif args.command == "delete":
                 self.api_client.send_status_delete(args.transaction)
             else:
