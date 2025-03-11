@@ -256,7 +256,8 @@ class IonAPClient:
     def send_status_receipt(self, transaction_id):
         path = "send-transactions/%s/receipt?disable_links=1&limit=10000" % transaction_id
         method = "GET"
-        return self.request(method, path)
+        headers = {'Accept': 'application/xml'}
+        return self.request(method, path, headers=headers, json_response=False)
 
     def send_status_delete(self, transaction_id):
         path = "send-transactions/%s" % transaction_id
