@@ -1,3 +1,5 @@
+**This project has moved to Codeberg:** https://codeberg.org/ionite/ion-ap-client
+
 # ion-AP API client tool
 
 This is a client tool for the ion-AP API.
